@@ -1168,6 +1168,40 @@ void cvdescriptorset::DescriptorSet::PerformCopyUpdate(const VkCopyDescriptorSet
     }
 }
 
+bool cvdescriptorset::DescriptorSet::ValidateWriteUpdateDataType(const VkWriteDescriptorSet *update, std::string *error_msg) const {
+    bool pass = true;
+    auto descriptors_remaining = update->descriptorCount;
+    auto binding_being_updated = update->dstBinding;
+    auto offset = update->dstArrayElement;
+    uint32_t update_index = 0;
+    while (descriptors_remaining) {
+        uint32_t update_count = std::min(descriptors_remaining, GetDescriptorCountFromBinding(binding_being_updated));
+        auto global_idx = p_layout_->GetGlobalIndexRangeFromBinding(binding_being_updated).start + offset;
+        // Loop over the updates for a single binding at a time
+        for (uint32_t di = 0; di < update_count; ++di, ++update_index) {
+            if (!descriptors_[global_idx + di]->IsCompatibleType(update->descriptorType)) {
+                pass = false;
+                std::stringstream error_str;
+                if (error_msg->length()) {
+                    error_str << ", ";
+                } else {
+                    error_str << "DescriptorSet ";
+                }
+                error_str << "binding:" << binding_being_updated << ", offset:" << offset + di
+                          << ", DataType:" << descriptors_[global_idx + di]->GetClassString()
+                          << " doesn't match VkWriteDescriptorSet::descriptorType:"
+                          << string_VkDescriptorType(update->descriptorType);
+                error_msg->append(error_str.str());
+            }
+        }
+        // Roll over to next binding in case of consecutive update
+        descriptors_remaining -= update_count;
+        offset = 0;
+        binding_being_updated++;
+    }
+    return pass;
+}
+
 // Update the drawing state for the affected descriptors.
 // Set cb_node to this set and this set to cb_node.
 // Add the bindings of the descriptor
@@ -2464,6 +2498,16 @@ bool CoreChecks::ValidateWriteUpdate(const DescriptorSet *dest_set, const VkWrit
         error_str << "Write update to " << dest_set->StringifySetAndLayout() << " binding #" << update->dstBinding
                   << " failed with error message: " << error_msg->c_str();
         *error_msg = error_str.str();
+        return false;
+    }
+
+    // if (!dest_set->ValidateWriteUpdateDataType(update, error_msg)) {
+    if (update->dstArrayElement >= update->descriptorCount) {
+        std::stringstream error_str;
+        error_str << "dstArrayElement: " << update->dstArrayElement
+                  << " must be less than descriptorCount: " << update->descriptorCount;
+        *error_msg = error_str.str();
+        *error_code = kVUID_Core_WriteDescriptorSet_InvaliddstArrayElement;
         return false;
     }
     // All checks passed, update is clean

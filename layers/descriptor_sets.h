@@ -360,6 +360,8 @@ class Descriptor {
     // Create binding between resources of this descriptor and given cb_node
     virtual void UpdateDrawState(ValidationStateTracker *, CMD_BUFFER_STATE *) = 0;
     virtual DescriptorClass GetClass() const { return descriptor_class; };
+    virtual const char *GetClassString() const = 0;
+    virtual bool IsCompatibleType(VkDescriptorType descriptor_type) const = 0;
     // Special fast-path check for SamplerDescriptors that are immutable
     virtual bool IsImmutableSampler() const { return false; };
     // Check for dynamic descriptor type
@@ -390,6 +392,10 @@ class SamplerDescriptor : public Descriptor {
     void UpdateDrawState(ValidationStateTracker *, CMD_BUFFER_STATE *) override;
     virtual bool IsImmutableSampler() const override { return immutable_; };
     VkSampler GetSampler() const { return sampler_; }
+    virtual const char *GetClassString() const override { return "SamplerDescriptor"; };
+    virtual bool IsCompatibleType(VkDescriptorType descriptor_type) const override {
+        return descriptor_type == VK_DESCRIPTOR_TYPE_SAMPLER;
+    }
 
   private:
     VkSampler sampler_;
@@ -406,6 +412,10 @@ class ImageSamplerDescriptor : public Descriptor {
     VkSampler GetSampler() const { return sampler_; }
     VkImageView GetImageView() const { return image_view_; }
     VkImageLayout GetImageLayout() const { return image_layout_; }
+    virtual const char *GetClassString() const override { return "ImageSamplerDescriptor"; };
+    virtual bool IsCompatibleType(VkDescriptorType descriptor_type) const override {
+        return descriptor_type == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    }
 
   private:
     VkSampler sampler_;
@@ -423,6 +433,11 @@ class ImageDescriptor : public Descriptor {
     virtual bool IsStorage() const override { return storage_; }
     VkImageView GetImageView() const { return image_view_; }
     VkImageLayout GetImageLayout() const { return image_layout_; }
+    virtual const char *GetClassString() const override { return "ImageDescriptor"; };
+    virtual bool IsCompatibleType(VkDescriptorType descriptor_type) const override {
+        return descriptor_type == VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE || descriptor_type == VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT ||
+               descriptor_type == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+    }
 
   private:
     bool storage_;
@@ -438,6 +453,11 @@ class TexelDescriptor : public Descriptor {
     void UpdateDrawState(ValidationStateTracker *, CMD_BUFFER_STATE *) override;
     virtual bool IsStorage() const override { return storage_; }
     VkBufferView GetBufferView() const { return buffer_view_; }
+    virtual const char *GetClassString() const override { return "TexelDescriptor"; };
+    virtual bool IsCompatibleType(VkDescriptorType descriptor_type) const override {
+        return descriptor_type == VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER ||
+               descriptor_type == VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER;
+    }
 
   private:
     VkBufferView buffer_view_;
@@ -455,6 +475,12 @@ class BufferDescriptor : public Descriptor {
     VkBuffer GetBuffer() const { return buffer_; }
     VkDeviceSize GetOffset() const { return offset_; }
     VkDeviceSize GetRange() const { return range_; }
+    virtual const char *GetClassString() const override { return "BufferDescriptor"; };
+    virtual bool IsCompatibleType(VkDescriptorType descriptor_type) const override {
+        return descriptor_type == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER ||
+               descriptor_type == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC ||
+               descriptor_type == VK_DESCRIPTOR_TYPE_STORAGE_BUFFER || descriptor_type == VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC;
+    }
 
   private:
     bool storage_;
@@ -473,6 +499,10 @@ class InlineUniformDescriptor : public Descriptor {
     void WriteUpdate(const VkWriteDescriptorSet *, const uint32_t) override { updated = true; }
     void CopyUpdate(const Descriptor *) override { updated = true; }
     void UpdateDrawState(ValidationStateTracker *, CMD_BUFFER_STATE *) override {}
+    virtual const char *GetClassString() const override { return "InlineUniformDescriptor"; };
+    virtual bool IsCompatibleType(VkDescriptorType descriptor_type) const override {
+        return descriptor_type == VK_DESCRIPTOR_TYPE_INLINE_UNIFORM_BLOCK_EXT;
+    }
 };
 
 class AccelerationStructureDescriptor : public Descriptor {
@@ -484,6 +514,10 @@ class AccelerationStructureDescriptor : public Descriptor {
     void WriteUpdate(const VkWriteDescriptorSet *, const uint32_t) override { updated = true; }
     void CopyUpdate(const Descriptor *) override { updated = true; }
     void UpdateDrawState(ValidationStateTracker *, CMD_BUFFER_STATE *) override {}
+    virtual const char *GetClassString() const override { return "AccelerationStructureDescriptor"; };
+    virtual bool IsCompatibleType(VkDescriptorType descriptor_type) const override {
+        return descriptor_type == VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_NV;
+    }
 };
 
 // Structs to contain common elements that need to be shared between Validate* and Perform* calls below
@@ -568,6 +602,8 @@ class DescriptorSet : public BASE_NODE {
     void PerformWriteUpdate(const VkWriteDescriptorSet *);
     // Perform a CopyUpdate whose contents were just validated using ValidateCopyUpdate
     void PerformCopyUpdate(const VkCopyDescriptorSet *, const DescriptorSet *);
+
+    bool ValidateWriteUpdateDataType(const VkWriteDescriptorSet *update, std::string *error_msg) const;
 
     const std::shared_ptr<DescriptorSetLayout const> GetLayout() const { return p_layout_; };
     VkDescriptorSetLayout GetDescriptorSetLayout() const { return p_layout_->GetDescriptorSetLayout(); }
