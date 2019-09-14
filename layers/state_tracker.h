@@ -219,47 +219,6 @@ static std::shared_ptr<cvdescriptorset::DescriptorSetLayout const> GetDslFromPip
     return dsl;
 }
 
-static spirv_inst_iter FindEntrypoint(SHADER_MODULE_STATE const* src, char const* name, VkShaderStageFlagBits stageBits) {
-    auto range = src->entry_points.equal_range(name);
-    for (auto it = range.first; it != range.second; ++it) {
-        if (it->second.stage == stageBits) {
-            return src->at(it->second.offset);
-        }
-    }
-    return src->end();
-}
-
-enum FORMAT_TYPE {
-    FORMAT_TYPE_FLOAT = 1,  // UNORM, SNORM, FLOAT, USCALED, SSCALED, SRGB -- anything we consider float in the shader
-    FORMAT_TYPE_SINT = 2,
-    FORMAT_TYPE_UINT = 4,
-};
-
-// characterizes a SPIR-V type appearing in an interface to a FF stage, for comparison to a VkFormat's characterization above.
-// also used for input attachments, as we statically know their format.
-static unsigned GetFundamentalType(SHADER_MODULE_STATE const* src, unsigned type) {
-    auto insn = src->get_def(type);
-    assert(insn != src->end());
-
-    switch (insn.opcode()) {
-        case spv::OpTypeInt:
-            return insn.word(3) ? FORMAT_TYPE_SINT : FORMAT_TYPE_UINT;
-        case spv::OpTypeFloat:
-            return FORMAT_TYPE_FLOAT;
-        case spv::OpTypeVector:
-        case spv::OpTypeMatrix:
-        case spv::OpTypeArray:
-        case spv::OpTypeRuntimeArray:
-        case spv::OpTypeImage:
-            return GetFundamentalType(src, insn.word(2));
-        case spv::OpTypePointer:
-            return GetFundamentalType(src, insn.word(3));
-
-        default:
-            return 0;
-    }
-}
-
 class ValidationStateTracker : public ValidationObject {
   public:
     //  TODO -- move to private
