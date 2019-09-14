@@ -42,7 +42,7 @@
 #include "spirv-tools/libspirv.h"
 #include "xxhash.h"
 
-static spirv_inst_iter FindEntrypoint(SHADER_MODULE_STATE const *src, char const *name, VkShaderStageFlagBits stageBits) {
+spirv_inst_iter FindEntrypoint(SHADER_MODULE_STATE const *src, char const *name, VkShaderStageFlagBits stageBits) {
     auto range = src->entry_points.equal_range(name);
     for (auto it = range.first; it != range.second; ++it) {
         if (it->second.stage == stageBits) {
@@ -60,7 +60,7 @@ enum FORMAT_TYPE {
 
 // characterizes a SPIR-V type appearing in an interface to a FF stage, for comparison to a VkFormat's characterization above.
 // also used for input attachments, as we statically know their format.
-static unsigned GetFundamentalType(SHADER_MODULE_STATE const *src, unsigned type) {
+unsigned GetFundamentalType(SHADER_MODULE_STATE const *src, unsigned type) {
     auto insn = src->get_def(type);
     assert(insn != src->end());
 
@@ -90,7 +90,7 @@ static unsigned GetFundamentalType(SHADER_MODULE_STATE const *src, unsigned type
 //
 // TODO: The set of interesting opcodes here was determined by eyeballing the SPIRV spec. It might be worth
 // converting parts of this to be generated from the machine-readable spec instead.
-static std::unordered_set<uint32_t> MarkAccessibleIds(SHADER_MODULE_STATE const *src, spirv_inst_iter entrypoint) {
+std::unordered_set<uint32_t> MarkAccessibleIds(SHADER_MODULE_STATE const *src, spirv_inst_iter entrypoint) {
     std::unordered_set<uint32_t> ids;
     std::unordered_set<uint32_t> worklist;
     worklist.insert(entrypoint.word(2));
@@ -201,7 +201,7 @@ static std::unordered_set<uint32_t> MarkAccessibleIds(SHADER_MODULE_STATE const 
     return ids;
 }
 
-static void ProcessExecutionModes(SHADER_MODULE_STATE const *src, const spirv_inst_iter &entrypoint, PIPELINE_STATE *pipeline) {
+void ProcessExecutionModes(SHADER_MODULE_STATE const *src, const spirv_inst_iter &entrypoint, PIPELINE_STATE *pipeline) {
     auto entrypoint_id = entrypoint.word(2);
     bool is_point_mode = false;
 
@@ -234,7 +234,7 @@ static void ProcessExecutionModes(SHADER_MODULE_STATE const *src, const spirv_in
     if (is_point_mode) pipeline->topology_at_rasterizer = VK_PRIMITIVE_TOPOLOGY_POINT_LIST;
 }
 
-static bool IsWritableDescriptorType(SHADER_MODULE_STATE const *module, uint32_t type_id, bool is_storage_buffer) {
+bool IsWritableDescriptorType(SHADER_MODULE_STATE const *module, uint32_t type_id, bool is_storage_buffer) {
     auto type = module->get_def(type_id);
 
     // Strip off any array or ptrs. Where we remove array levels, adjust the  descriptor count for each dimension.
@@ -272,7 +272,7 @@ static bool IsWritableDescriptorType(SHADER_MODULE_STATE const *module, uint32_t
     return false;
 }
 
-static std::vector<std::pair<descriptor_slot_t, interface_var>> CollectInterfaceByDescriptorSlot(
+std::vector<std::pair<descriptor_slot_t, interface_var>> CollectInterfaceByDescriptorSlot(
     debug_report_data const *report_data, SHADER_MODULE_STATE const *src, std::unordered_set<uint32_t> const &accessible_ids,
     bool *has_writable_descriptor) {
     std::vector<std::pair<descriptor_slot_t, interface_var>> out;
@@ -303,7 +303,7 @@ static std::vector<std::pair<descriptor_slot_t, interface_var>> CollectInterface
     return out;
 }
 
-static uint32_t DescriptorTypeToReqs(SHADER_MODULE_STATE const *module, uint32_t type_id) {
+uint32_t DescriptorTypeToReqs(SHADER_MODULE_STATE const *module, uint32_t type_id) {
     auto type = module->get_def(type_id);
 
     while (true) {
@@ -586,7 +586,7 @@ unsigned ExecutionModelToShaderStageFlagBits(unsigned mode) {
     }
 }
 
-static char const *StorageClassName(unsigned sc) {
+char const *StorageClassName(unsigned sc) {
     switch (sc) {
         case spv::StorageClassInput:
             return "input";
@@ -633,7 +633,7 @@ unsigned GetConstantValue(SHADER_MODULE_STATE const *src, unsigned id) {
     return value.word(3);
 }
 
-static void DescribeTypeInner(std::ostringstream &ss, SHADER_MODULE_STATE const *src, unsigned type) {
+void DescribeTypeInner(std::ostringstream &ss, SHADER_MODULE_STATE const *src, unsigned type) {
     auto insn = src->get_def(type);
     assert(insn != src->end());
 
@@ -698,19 +698,19 @@ static void DescribeTypeInner(std::ostringstream &ss, SHADER_MODULE_STATE const 
     }
 }
 
-static std::string DescribeType(SHADER_MODULE_STATE const *src, unsigned type) {
+std::string DescribeType(SHADER_MODULE_STATE const *src, unsigned type) {
     std::ostringstream ss;
     DescribeTypeInner(ss, src, type);
     return ss.str();
 }
 
-static bool IsNarrowNumericType(spirv_inst_iter type) {
+bool IsNarrowNumericType(spirv_inst_iter type) {
     if (type.opcode() != spv::OpTypeInt && type.opcode() != spv::OpTypeFloat) return false;
     return type.word(2) < 64;
 }
 
-static bool TypesMatch(SHADER_MODULE_STATE const *a, SHADER_MODULE_STATE const *b, unsigned a_type, unsigned b_type, bool a_arrayed,
-                       bool b_arrayed, bool relaxed) {
+bool TypesMatch(SHADER_MODULE_STATE const *a, SHADER_MODULE_STATE const *b, unsigned a_type, unsigned b_type, bool a_arrayed,
+                bool b_arrayed, bool relaxed) {
     // Walk two type trees together, and complain about differences
     auto a_insn = a->get_def(a_type);
     auto b_insn = b->get_def(b_type);
@@ -793,7 +793,7 @@ static bool TypesMatch(SHADER_MODULE_STATE const *a, SHADER_MODULE_STATE const *
     }
 }
 
-static unsigned ValueOrDefault(std::unordered_map<unsigned, unsigned> const &map, unsigned id, unsigned def) {
+unsigned ValueOrDefault(std::unordered_map<unsigned, unsigned> const &map, unsigned id, unsigned def) {
     auto it = map.find(id);
     if (it == map.end())
         return def;
@@ -801,7 +801,7 @@ static unsigned ValueOrDefault(std::unordered_map<unsigned, unsigned> const &map
         return it->second;
 }
 
-static unsigned GetLocationsConsumedByType(SHADER_MODULE_STATE const *src, unsigned type, bool strip_array_level) {
+unsigned GetLocationsConsumedByType(SHADER_MODULE_STATE const *src, unsigned type, bool strip_array_level) {
     auto insn = src->get_def(type);
     assert(insn != src->end());
 
@@ -835,7 +835,7 @@ static unsigned GetLocationsConsumedByType(SHADER_MODULE_STATE const *src, unsig
     }
 }
 
-static unsigned GetComponentsConsumedByType(SHADER_MODULE_STATE const *src, unsigned type, bool strip_array_level) {
+unsigned GetComponentsConsumedByType(SHADER_MODULE_STATE const *src, unsigned type, bool strip_array_level) {
     auto insn = src->get_def(type);
     assert(insn != src->end());
 
@@ -882,7 +882,7 @@ static unsigned GetComponentsConsumedByType(SHADER_MODULE_STATE const *src, unsi
     }
 }
 
-static unsigned GetLocationsConsumedByFormat(VkFormat format) {
+unsigned GetLocationsConsumedByFormat(VkFormat format) {
     switch (format) {
         case VK_FORMAT_R64G64B64A64_SFLOAT:
         case VK_FORMAT_R64G64B64A64_SINT:
@@ -896,7 +896,7 @@ static unsigned GetLocationsConsumedByFormat(VkFormat format) {
     }
 }
 
-static unsigned GetFormatType(VkFormat fmt) {
+unsigned GetFormatType(VkFormat fmt) {
     if (FormatIsSInt(fmt)) return FORMAT_TYPE_SINT;
     if (FormatIsUInt(fmt)) return FORMAT_TYPE_UINT;
     if (FormatIsDepthAndStencil(fmt)) return FORMAT_TYPE_FLOAT | FORMAT_TYPE_UINT;
@@ -905,12 +905,12 @@ static unsigned GetFormatType(VkFormat fmt) {
     return FORMAT_TYPE_FLOAT;
 }
 
-static uint32_t GetShaderStageId(VkShaderStageFlagBits stage) {
+uint32_t GetShaderStageId(VkShaderStageFlagBits stage) {
     uint32_t bit_pos = uint32_t(u_ffs(stage));
     return bit_pos - 1;
 }
 
-static spirv_inst_iter GetStructType(SHADER_MODULE_STATE const *src, spirv_inst_iter def, bool is_array_of_verts) {
+spirv_inst_iter GetStructType(SHADER_MODULE_STATE const *src, spirv_inst_iter def, bool is_array_of_verts) {
     while (true) {
         if (def.opcode() == spv::OpTypePointer) {
             def = src->get_def(def.word(3));
@@ -925,9 +925,8 @@ static spirv_inst_iter GetStructType(SHADER_MODULE_STATE const *src, spirv_inst_
     }
 }
 
-static bool CollectInterfaceBlockMembers(SHADER_MODULE_STATE const *src, std::map<location_t, interface_var> *out,
-                                         bool is_array_of_verts, uint32_t id, uint32_t type_id, bool is_patch,
-                                         int /*first_location*/) {
+bool CollectInterfaceBlockMembers(SHADER_MODULE_STATE const *src, std::map<location_t, interface_var> *out, bool is_array_of_verts,
+                                  uint32_t id, uint32_t type_id, bool is_patch, int /*first_location*/) {
     // Walk down the type_id presented, trying to determine whether it's actually an interface block.
     auto type = GetStructType(src, src->get_def(type_id), is_array_of_verts && !is_patch);
     if (type == src->end() || !(src->get_decorations(type.word(1)).flags & decoration_set::block_bit)) {
@@ -993,7 +992,7 @@ static bool CollectInterfaceBlockMembers(SHADER_MODULE_STATE const *src, std::ma
     return true;
 }
 
-static std::vector<uint32_t> FindEntrypointInterfaces(spirv_inst_iter entrypoint) {
+std::vector<uint32_t> FindEntrypointInterfaces(spirv_inst_iter entrypoint) {
     assert(entrypoint.opcode() == spv::OpEntryPoint);
 
     std::vector<uint32_t> interfaces;
@@ -1010,8 +1009,8 @@ static std::vector<uint32_t> FindEntrypointInterfaces(spirv_inst_iter entrypoint
     return interfaces;
 }
 
-static std::map<location_t, interface_var> CollectInterfaceByLocation(SHADER_MODULE_STATE const *src, spirv_inst_iter entrypoint,
-                                                                      spv::StorageClass sinterface, bool is_array_of_verts) {
+std::map<location_t, interface_var> CollectInterfaceByLocation(SHADER_MODULE_STATE const *src, spirv_inst_iter entrypoint,
+                                                               spv::StorageClass sinterface, bool is_array_of_verts) {
     // TODO: handle index=1 dual source outputs from FS -- two vars will have the same location, and we DON'T want to clobber.
 
     std::map<location_t, interface_var> out;
@@ -1054,8 +1053,8 @@ static std::map<location_t, interface_var> CollectInterfaceByLocation(SHADER_MOD
     return out;
 }
 
-static std::vector<uint32_t> CollectBuiltinBlockMembers(SHADER_MODULE_STATE const *src, spirv_inst_iter entrypoint,
-                                                        uint32_t storageClass) {
+std::vector<uint32_t> CollectBuiltinBlockMembers(SHADER_MODULE_STATE const *src, spirv_inst_iter entrypoint,
+                                                 uint32_t storageClass) {
     std::vector<uint32_t> variables;
     std::vector<uint32_t> builtinStructMembers;
     std::vector<uint32_t> builtinDecorations;
@@ -1134,7 +1133,7 @@ static std::vector<uint32_t> CollectBuiltinBlockMembers(SHADER_MODULE_STATE cons
     return builtinBlockMembers;
 }
 
-static std::vector<std::pair<uint32_t, interface_var>> CollectInterfaceByInputAttachmentIndex(
+std::vector<std::pair<uint32_t, interface_var>> CollectInterfaceByInputAttachmentIndex(
     SHADER_MODULE_STATE const *src, std::unordered_set<uint32_t> const &accessible_ids) {
     std::vector<std::pair<uint32_t, interface_var>> out;
 
@@ -1166,7 +1165,7 @@ static std::vector<std::pair<uint32_t, interface_var>> CollectInterfaceByInputAt
     return out;
 }
 
-static bool ValidateViConsistency(debug_report_data const *report_data, VkPipelineVertexInputStateCreateInfo const *vi) {
+bool ValidateViConsistency(debug_report_data const *report_data, VkPipelineVertexInputStateCreateInfo const *vi) {
     // Walk the binding descriptions, which describe the step rate and stride of each vertex buffer.  Each binding should
     // be specified only once.
     std::unordered_map<uint32_t, VkVertexInputBindingDescription const *> bindings;
@@ -1188,8 +1187,8 @@ static bool ValidateViConsistency(debug_report_data const *report_data, VkPipeli
     return skip;
 }
 
-static bool ValidateViAgainstVsInputs(debug_report_data const *report_data, VkPipelineVertexInputStateCreateInfo const *vi,
-                                      SHADER_MODULE_STATE const *vs, spirv_inst_iter entrypoint) {
+bool ValidateViAgainstVsInputs(debug_report_data const *report_data, VkPipelineVertexInputStateCreateInfo const *vi,
+                               SHADER_MODULE_STATE const *vs, spirv_inst_iter entrypoint) {
     bool skip = false;
 
     const auto inputs = CollectInterfaceByLocation(vs, entrypoint, spv::StorageClassInput, false);
@@ -1245,8 +1244,8 @@ static bool ValidateViAgainstVsInputs(debug_report_data const *report_data, VkPi
     return skip;
 }
 
-static bool ValidateFsOutputsAgainstRenderPass(debug_report_data const *report_data, SHADER_MODULE_STATE const *fs,
-                                               spirv_inst_iter entrypoint, PIPELINE_STATE const *pipeline, uint32_t subpass_index) {
+bool ValidateFsOutputsAgainstRenderPass(debug_report_data const *report_data, SHADER_MODULE_STATE const *fs,
+                                        spirv_inst_iter entrypoint, PIPELINE_STATE const *pipeline, uint32_t subpass_index) {
     bool skip = false;
 
     const auto rpci = pipeline->rp_state->createInfo.ptr();
@@ -1325,7 +1324,7 @@ static bool ValidateFsOutputsAgainstRenderPass(debug_report_data const *report_d
 
 // For PointSize analysis we need to know if the variable decorated with the PointSize built-in was actually written to.
 // This function examines instructions in the static call tree for a write to this variable.
-static bool IsPointSizeWritten(SHADER_MODULE_STATE const *src, spirv_inst_iter builtin_instr, spirv_inst_iter entrypoint) {
+bool IsPointSizeWritten(SHADER_MODULE_STATE const *src, spirv_inst_iter builtin_instr, spirv_inst_iter entrypoint) {
     auto type = builtin_instr.opcode();
     uint32_t target_id = builtin_instr.word(1);
     bool init_complete = false;
@@ -1399,10 +1398,9 @@ static bool IsPointSizeWritten(SHADER_MODULE_STATE const *src, spirv_inst_iter b
     return found_write;
 }
 
-static bool ValidatePushConstantBlockAgainstPipeline(debug_report_data const *report_data,
-                                                     std::vector<VkPushConstantRange> const *push_constant_ranges,
-                                                     SHADER_MODULE_STATE const *src, spirv_inst_iter type,
-                                                     VkShaderStageFlagBits stage) {
+bool ValidatePushConstantBlockAgainstPipeline(debug_report_data const *report_data,
+                                              std::vector<VkPushConstantRange> const *push_constant_ranges,
+                                              SHADER_MODULE_STATE const *src, spirv_inst_iter type, VkShaderStageFlagBits stage) {
     bool skip = false;
 
     // Strip off ptrs etc
@@ -1446,9 +1444,9 @@ static bool ValidatePushConstantBlockAgainstPipeline(debug_report_data const *re
     return skip;
 }
 
-static bool ValidatePushConstantUsage(debug_report_data const *report_data,
-                                      std::vector<VkPushConstantRange> const *push_constant_ranges, SHADER_MODULE_STATE const *src,
-                                      std::unordered_set<uint32_t> accessible_ids, VkShaderStageFlagBits stage) {
+bool ValidatePushConstantUsage(debug_report_data const *report_data, std::vector<VkPushConstantRange> const *push_constant_ranges,
+                               SHADER_MODULE_STATE const *src, std::unordered_set<uint32_t> accessible_ids,
+                               VkShaderStageFlagBits stage) {
     bool skip = false;
 
     for (auto id : accessible_ids) {
@@ -1463,7 +1461,7 @@ static bool ValidatePushConstantUsage(debug_report_data const *report_data,
 }
 
 // Validate that data for each specialization entry is fully contained within the buffer.
-static bool ValidateSpecializationOffsets(debug_report_data const *report_data, VkPipelineShaderStageCreateInfo const *info) {
+bool ValidateSpecializationOffsets(debug_report_data const *report_data, VkPipelineShaderStageCreateInfo const *info) {
     bool skip = false;
 
     VkSpecializationInfo const *spec = info->pSpecializationInfo;
@@ -1495,7 +1493,7 @@ static bool ValidateSpecializationOffsets(debug_report_data const *report_data, 
 }
 
 // TODO (jbolz): Can this return a const reference?
-static std::set<uint32_t> TypeToDescriptorTypeSet(SHADER_MODULE_STATE const *module, uint32_t type_id, unsigned &descriptor_count) {
+std::set<uint32_t> TypeToDescriptorTypeSet(SHADER_MODULE_STATE const *module, uint32_t type_id, unsigned &descriptor_count) {
     auto type = module->get_def(type_id);
     bool is_storage_buffer = false;
     descriptor_count = 1;
@@ -1599,7 +1597,7 @@ static std::set<uint32_t> TypeToDescriptorTypeSet(SHADER_MODULE_STATE const *mod
     }
 }
 
-static std::string string_descriptorTypes(const std::set<uint32_t> &descriptor_types) {
+std::string string_descriptorTypes(const std::set<uint32_t> &descriptor_types) {
     std::stringstream ss;
     for (auto it = descriptor_types.begin(); it != descriptor_types.end(); ++it) {
         if (ss.tellp()) ss << ", ";
@@ -1608,7 +1606,7 @@ static std::string string_descriptorTypes(const std::set<uint32_t> &descriptor_t
     return ss.str();
 }
 
-static bool RequirePropertyFlag(debug_report_data const *report_data, VkBool32 check, char const *flag, char const *structure) {
+bool RequirePropertyFlag(debug_report_data const *report_data, VkBool32 check, char const *flag, char const *structure) {
     if (!check) {
         if (log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, 0,
                     kVUID_Core_Shader_ExceedDeviceLimit, "Shader requires flag %s set in %s but it is not set on the device", flag,
@@ -1620,7 +1618,7 @@ static bool RequirePropertyFlag(debug_report_data const *report_data, VkBool32 c
     return false;
 }
 
-static bool RequireFeature(debug_report_data const *report_data, VkBool32 feature, char const *feature_name) {
+bool RequireFeature(debug_report_data const *report_data, VkBool32 feature, char const *feature_name) {
     if (!feature) {
         if (log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, 0,
                     kVUID_Core_Shader_FeatureNotEnabled, "Shader requires %s but is not enabled on the device", feature_name)) {
@@ -1631,7 +1629,7 @@ static bool RequireFeature(debug_report_data const *report_data, VkBool32 featur
     return false;
 }
 
-static bool RequireExtension(debug_report_data const *report_data, bool extension, char const *extension_name) {
+bool RequireExtension(debug_report_data const *report_data, bool extension, char const *extension_name) {
     if (!extension) {
         if (log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, 0,
                     kVUID_Core_Shader_FeatureNotEnabled, "Shader requires extension %s but is not enabled on the device",
@@ -2175,8 +2173,8 @@ void GetSpecConstantValue(VkPipelineShaderStageCreateInfo const *pStage, uint32_
 
 // Fill in value with the constant or specialization constant value, if available.
 // Returns true if the value has been accurately filled out.
-static bool GetIntConstantValue(spirv_inst_iter insn, SHADER_MODULE_STATE const *src, VkPipelineShaderStageCreateInfo const *pStage,
-                                const std::unordered_map<uint32_t, uint32_t> &id_to_spec_id, uint32_t *value) {
+bool GetIntConstantValue(spirv_inst_iter insn, SHADER_MODULE_STATE const *src, VkPipelineShaderStageCreateInfo const *pStage,
+                         const std::unordered_map<uint32_t, uint32_t> &id_to_spec_id, uint32_t *value) {
     auto type_id = src->get_def(insn.word(1));
     if (type_id.opcode() != spv::OpTypeInt || type_id.word(2) != 32) {
         return false;
@@ -2682,8 +2680,7 @@ bool CoreChecks::ValidateExecutionModes(SHADER_MODULE_STATE const *src, spirv_in
 
 // For given pipelineLayout verify that the set_layout_node at slot.first
 //  has the requested binding at slot.second and return ptr to that binding
-static VkDescriptorSetLayoutBinding const *GetDescriptorBinding(PIPELINE_LAYOUT_STATE const *pipelineLayout,
-                                                                descriptor_slot_t slot) {
+VkDescriptorSetLayoutBinding const *GetDescriptorBinding(PIPELINE_LAYOUT_STATE const *pipelineLayout, descriptor_slot_t slot) {
     if (!pipelineLayout) return nullptr;
 
     if (slot.first >= pipelineLayout->set_layouts.size()) return nullptr;
@@ -2691,7 +2688,7 @@ static VkDescriptorSetLayoutBinding const *GetDescriptorBinding(PIPELINE_LAYOUT_
     return pipelineLayout->set_layouts[slot.first]->GetDescriptorSetLayoutBindingPtrFromBinding(slot.second);
 }
 
-static bool FindLocalSize(SHADER_MODULE_STATE const *src, uint32_t &local_size_x, uint32_t &local_size_y, uint32_t &local_size_z) {
+bool FindLocalSize(SHADER_MODULE_STATE const *src, uint32_t &local_size_x, uint32_t &local_size_y, uint32_t &local_size_z) {
     for (auto insn : *src) {
         if (insn.opcode() == spv::OpEntryPoint) {
             auto executionModel = insn.word(1);
@@ -2872,10 +2869,10 @@ bool CoreChecks::ValidatePipelineShaderStage(VkPipelineShaderStageCreateInfo con
     return skip;
 }
 
-static bool ValidateInterfaceBetweenStages(debug_report_data const *report_data, SHADER_MODULE_STATE const *producer,
-                                           spirv_inst_iter producer_entrypoint, shader_stage_attributes const *producer_stage,
-                                           SHADER_MODULE_STATE const *consumer, spirv_inst_iter consumer_entrypoint,
-                                           shader_stage_attributes const *consumer_stage) {
+bool ValidateInterfaceBetweenStages(debug_report_data const *report_data, SHADER_MODULE_STATE const *producer,
+                                    spirv_inst_iter producer_entrypoint, shader_stage_attributes const *producer_stage,
+                                    SHADER_MODULE_STATE const *consumer, spirv_inst_iter consumer_entrypoint,
+                                    shader_stage_attributes const *consumer_stage) {
     bool skip = false;
 
     auto outputs =
@@ -2968,7 +2965,7 @@ static bool ValidateInterfaceBetweenStages(debug_report_data const *report_data,
     return skip;
 }
 
-static inline uint32_t DetermineFinalGeomStage(const PIPELINE_STATE *pipeline, const VkGraphicsPipelineCreateInfo *pCreateInfo) {
+inline uint32_t DetermineFinalGeomStage(const PIPELINE_STATE *pipeline, const VkGraphicsPipelineCreateInfo *pCreateInfo) {
     uint32_t stage_mask = 0;
     if (pipeline->topology_at_rasterizer == VK_PRIMITIVE_TOPOLOGY_POINT_LIST) {
         for (uint32_t i = 0; i < pCreateInfo->stageCount; i++) {
@@ -3079,7 +3076,7 @@ bool CoreChecks::ValidateRayTracingPipelineNV(PIPELINE_STATE *pipeline) const {
 
 uint32_t ValidationCache::MakeShaderHash(VkShaderModuleCreateInfo const *smci) { return XXH32(smci->pCode, smci->codeSize, 0); }
 
-static ValidationCache *GetValidationCacheInfo(VkShaderModuleCreateInfo const *pCreateInfo) {
+ValidationCache *GetValidationCacheInfo(VkShaderModuleCreateInfo const *pCreateInfo) {
     const auto validation_cache_ci = lvl_find_in_chain<VkShaderModuleValidationCacheCreateInfoEXT>(pCreateInfo->pNext);
     if (validation_cache_ci) {
         return CastFromHandle<ValidationCache *>(validation_cache_ci->validationCache);

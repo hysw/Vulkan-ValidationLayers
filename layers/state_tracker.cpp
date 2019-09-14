@@ -415,7 +415,7 @@ const PHYSICAL_DEVICE_STATE *ValidationStateTracker::GetPhysicalDeviceState() co
 
 // Return ptr to memory binding for given handle of specified type
 template <typename State, typename Result>
-static Result GetObjectMemBindingImpl(State state, const VulkanTypedHandle &typed_handle) {
+Result GetObjectMemBindingImpl(State state, const VulkanTypedHandle &typed_handle) {
     switch (typed_handle.type) {
         case kVulkanObjectTypeImage:
             return state->GetImageState(typed_handle.Cast<VkImage>());
@@ -1311,7 +1311,7 @@ void ValidationStateTracker::RetireWorkOnQueue(QUEUE_STATE *pQueue, uint64_t seq
 
 // Submit a fence to a queue, delimiting previous fences and previous untracked
 // work by it.
-static void SubmitFence(QUEUE_STATE *pQueue, FENCE_STATE *pFence, uint64_t submitCount) {
+void SubmitFence(QUEUE_STATE *pQueue, FENCE_STATE *pFence, uint64_t submitCount) {
     pFence->state = FENCE_INFLIGHT;
     pFence->signaler.first = pQueue->queue;
     pFence->signaler.second = pQueue->seq + pQueue->submissions.size() + submitCount;
@@ -1710,7 +1710,7 @@ void ValidationStateTracker::InsertAccelerationStructureMemoryRange(VkAccelerati
 }
 
 // This function will remove the handle-to-index mapping from the appropriate map.
-static void RemoveMemoryRange(const VulkanTypedHandle &typed_handle, DEVICE_MEMORY_STATE *mem_info) {
+void RemoveMemoryRange(const VulkanTypedHandle &typed_handle, DEVICE_MEMORY_STATE *mem_info) {
     if (typed_handle.type == kVulkanObjectTypeImage) {
         mem_info->bound_images.erase(typed_handle.Cast<VkImage>());
     } else if (typed_handle.type == kVulkanObjectTypeBuffer) {
@@ -1817,8 +1817,8 @@ void ValidationStateTracker::PostCallRecordGetImageMemoryRequirements2KHR(VkDevi
     RecordGetImageMemoryRequiementsState(pInfo->image, &pMemoryRequirements->memoryRequirements);
 }
 
-static void RecordGetImageSparseMemoryRequirementsState(IMAGE_STATE *image_state,
-                                                        VkSparseImageMemoryRequirements *sparse_image_memory_requirements) {
+void RecordGetImageSparseMemoryRequirementsState(IMAGE_STATE *image_state,
+                                                 VkSparseImageMemoryRequirements *sparse_image_memory_requirements) {
     image_state->sparse_requirements.emplace_back(*sparse_image_memory_requirements);
     if (sparse_image_memory_requirements->formatProperties.aspectMask & VK_IMAGE_ASPECT_METADATA_BIT) {
         image_state->sparse_metadata_required = true;
@@ -2205,8 +2205,8 @@ static PipelineLayoutSetLayoutsDict pipeline_layout_set_layouts_dict;
 // Dictionary of canonical form of the "compatible for set" records
 static PipelineLayoutCompatDict pipeline_layout_compat_dict;
 
-static PipelineLayoutCompatId GetCanonicalId(const uint32_t set_index, const PushConstantRangesId pcr_id,
-                                             const PipelineLayoutSetLayoutsId set_layouts_id) {
+PipelineLayoutCompatId GetCanonicalId(const uint32_t set_index, const PushConstantRangesId pcr_id,
+                                      const PipelineLayoutSetLayoutsId set_layouts_id) {
     return pipeline_layout_compat_dict.look_up(PipelineLayoutCompatDef(set_index, pcr_id, set_layouts_id));
 }
 
@@ -3110,7 +3110,7 @@ void ValidationStateTracker::RecordRenderPassDAG(RenderPassCreateVersion rp_vers
     }
 }
 
-static void MarkAttachmentFirstUse(RENDER_PASS_STATE *render_pass, uint32_t index, bool is_read) {
+void MarkAttachmentFirstUse(RENDER_PASS_STATE *render_pass, uint32_t index, bool is_read) {
     if (index == VK_ATTACHMENT_UNUSED) return;
 
     if (!render_pass->attachment_first_read.count(index)) render_pass->attachment_first_read[index] = is_read;
@@ -3614,8 +3614,8 @@ void ValidationStateTracker::PostCallRecordEnumeratePhysicalDevices(VkInstance i
 }
 
 // Common function to update state for GetPhysicalDeviceQueueFamilyProperties & 2KHR version
-static void StateUpdateCommonGetPhysicalDeviceQueueFamilyProperties(PHYSICAL_DEVICE_STATE *pd_state, uint32_t count,
-                                                                    VkQueueFamilyProperties2KHR *pQueueFamilyProperties) {
+void StateUpdateCommonGetPhysicalDeviceQueueFamilyProperties(PHYSICAL_DEVICE_STATE *pd_state, uint32_t count,
+                                                             VkQueueFamilyProperties2KHR *pQueueFamilyProperties) {
     pd_state->queue_family_known_count = std::max(pd_state->queue_family_known_count, count);
 
     if (!pQueueFamilyProperties) {
@@ -4160,7 +4160,7 @@ void ValidationStateTracker::UpdateStateCmdDrawDispatchType(CMD_BUFFER_STATE *cb
     cb_state->hasDispatchCmd = true;
 }
 
-static inline void UpdateResourceTrackingOnDraw(CMD_BUFFER_STATE *pCB) {
+inline void UpdateResourceTrackingOnDraw(CMD_BUFFER_STATE *pCB) {
     pCB->cb_vertex_buffer_binding_info.push_back(pCB->current_vertex_buffer_binding_info);
 }
 
